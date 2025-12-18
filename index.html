@@ -1,0 +1,297 @@
+<html>
+<head>
+    <title>CSCI-610 -- Final Exam</title>
+    
+    <script id="wireframe-V" type="x-shader/x-vertex">
+        #version 300 es
+        in vec4 aVertexPosition;
+        uniform mat4 modelT;
+        uniform mat4 viewT;
+        uniform mat4 projT;
+        void main() {
+            gl_Position = projT * viewT * modelT * aVertexPosition;
+        }
+    </script>
+
+    <script id="wireframe-F" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+        out vec4 fragColor;
+        void main(void) {
+            fragColor = vec4 (0.5, 0.5, 0.5, 1.0 );
+        }
+    </script>
+
+    <script id="tex-V" type="x-shader/x-vertex">
+        #version 300 es
+        precision highp float;
+
+        in vec4 aVertexPosition;
+        in vec2 aUV;             // Added UV attribute from textureMain2 logic
+
+        out vec2 theUV;          // Pass UVs to fragment shader
+
+        uniform mat4 modelT;
+        uniform mat4 viewT;
+        uniform mat4 projT;
+
+        void main() {
+            theUV = aUV;
+            gl_Position = projT * viewT * modelT * aVertexPosition;
+        }
+    </script>
+
+    <!-- UPDATED: Add spherical mapping texture vertex shader for sphere -->
+    <script id="sphereMap-V" type="x-shader/x-vertex">
+#version 300 es
+precision highp float;
+
+in vec4 aVertexPosition;
+
+out vec2 theUV;          // Pass UVs to fragment shader
+
+uniform mat4 modelT;
+uniform mat4 viewT;
+uniform mat4 projT;
+
+// From textureMain2.js - spherical mapping
+void main() {
+    // Spherical mapping: compute UV from vertex position
+    // This is similar to what textureMain2.js does for globe texture
+    vec3 position = aVertexPosition.xyz;
+    
+    // Normalize to get direction vector
+    vec3 normalizedPos = normalize(position);
+    
+    // Convert to spherical coordinates (longitude/latitude)
+    // atan gives longitude in [-π, π], normalize to [0, 1]
+    float u = 0.5 + atan(normalizedPos.z, normalizedPos.x) / (2.0 * 3.14159265);
+    
+    // asin gives latitude in [-π/2, π/2], normalize to [0, 1]
+    float v = 0.5 - asin(normalizedPos.y) / 3.14159265;
+    
+    theUV = vec2(u, v);
+    
+    gl_Position = projT * viewT * modelT * aVertexPosition;
+}
+</script>
+
+    <script id="tex-F" type="x-shader/x-fragment">
+        #version 300 es
+        precision mediump float;
+
+        in vec2 theUV;
+        uniform sampler2D uTheTexture; // Added texture sampler
+
+        out vec4 fragColor;
+
+        void main() {
+            // Sample the texture using passed UV coordinates
+            fragColor = texture(uTheTexture, theUV);
+        }
+    </script>
+
+    <!-- Add these shaders to your final-exam.html file -->
+    <script id="phong-per-vertex-V" type="x-shader/x-vertex">
+#version 300 es
+precision mediump float;
+// Vertex shader for phong illumination model
+// Per vertex shading
+
+// Vertex Attributes
+in vec4 aVertexPosition; // in model coords (changed from vec3 to vec4)
+in vec3 aNormal;    // in model coords
+
+// outputs
+out vec3 theColor;
+  
+// Transforms
+uniform mat4 modelT;
+uniform mat4 viewT;
+uniform mat4 projT;
+
+// Light parameters
+uniform vec3 ambientLight;
+uniform vec3 lightPosition;   // in world coords
+uniform vec3 lightColor;
+
+// object color parameters
+uniform vec3 baseColor;
+uniform vec3 specHighlightColor;
+
+// Phong parameters
+uniform float ka;
+uniform float kd;
+uniform float ks;
+uniform float ke;
+  
+void main()
+{
+    // All calculations will be done in camera space
+    mat4 modelView = viewT * modelT;
+    mat4 normalmatrix = transpose(inverse (modelView));
+    
+    vec3 vcam = (modelView * aVertexPosition).xyz;
+    vec3 lcam = (viewT * vec4(lightPosition, 1.0)).xyz;
+    vec3 ncam = (normalmatrix * vec4(aNormal, 1.0)).xyz;
+    ncam = faceforward (ncam, vcam, ncam);
+    
+    
+    vec3 N = normalize (ncam);
+    vec3 L = normalize (lcam - vcam);
+    vec3 R = normalize (reflect (-L, N));
+    vec3 V = -normalize (vcam);
+    
+    // individual components
+    vec3 ambient = ka * ambientLight * baseColor;
+    vec3 diffuse = kd * lightColor * baseColor * max (dot(L, N), 0.0);
+    vec3 spec = ks * specHighlightColor * lightColor * pow (max(dot(R, V), 0.0), ke);
+    
+    // final color
+    theColor = ambient + diffuse + spec;
+
+    
+    // transform vertex to clip space
+    gl_Position = projT * viewT * modelT * aVertexPosition;
+}
+</script>
+
+<script id="phong-per-vertex-F" type="x-shader/x-fragment">
+#version 300 es
+precision mediump float;
+// Fragment shader for phong illumination model
+// Per vertex shading
+
+in vec3 theColor;
+
+// Color that is the result of this shader
+out vec4 fragColor;
+
+void main(void) {
+    fragColor = vec4 (theColor.xyz, 1.0);
+}
+</script>
+
+<script id="phong-per-fragment-V" type="x-shader/x-vertex">
+#version 300 es
+precision mediump float;
+// Vertex shader for phong illumination model
+// Per fragment shading
+
+// Vertex Attributes
+in vec4 aVertexPosition; // in model coords (changed from vec3 to vec4)
+in vec3 aNormal;    // in model coords
+
+// outputs
+out vec3 N;
+out vec3 L;
+out vec3 V;
+  
+// Transforms
+uniform mat4 modelT;
+uniform mat4 viewT;
+uniform mat4 projT;
+
+// Light parameters
+uniform vec3 lightPosition;   // in world coords
+
+void main()
+{
+    // All calculations will be done in camera space
+    mat4 modelView = viewT * modelT;
+    mat4 normalmatrix = transpose(inverse (modelView));
+    
+    vec3 vcam = (modelView * aVertexPosition).xyz;
+    vec3 lcam = (viewT * vec4(lightPosition, 1.0)).xyz;
+    vec3 ncam = (normalmatrix * vec4(aNormal, 1.0)).xyz;
+    ncam = faceforward (ncam, vcam, ncam);
+    
+    // vectors to pass on to Fragment Shader
+    N = normalize (ncam);
+    L = normalize (lcam - vcam);
+    V = -normalize (vcam);
+
+    // transform vertex to clip space
+    gl_Position = projT * viewT * modelT * aVertexPosition;
+}
+</script>
+
+<script id="phong-per-fragment-F" type="x-shader/x-fragment">
+#version 300 es
+precision mediump float;
+// Fragment shader for phong illumination model
+// Per fragment shading
+
+// calculated by vertex shader and passed to fragment
+in vec3 N;
+in vec3 L;
+in vec3 V;
+ 
+// Light parameters
+uniform vec3 ambientLight;
+uniform vec3 lightColor;
+
+// object color parameters
+uniform vec3 baseColor;
+uniform vec3 specHighlightColor;
+
+// Phong parameters
+uniform float ka;
+uniform float kd;
+uniform float ks;
+uniform float ke;
+
+// Color that is the result of this shader
+out vec4 fragColor;
+
+void main(void) {
+    // individual components
+    vec3 R = normalize (reflect (-L, N));
+    
+    vec3 ambient = ka * ambientLight * baseColor;
+    vec3 diffuse = kd * lightColor * baseColor * max (dot(L, N), 0.0);
+    vec3 spec = ks * specHighlightColor * lightColor * pow (max(dot(R, V), 0.0), ke);
+    
+    // final color
+    fragColor = vec4 (ambient + diffuse + spec, 1.0);
+}
+</script>     
+    <script type="text/javascript" src="gl-matrix-min.js"></script>
+    <script type="text/javascript" src="./finalMain.js"></script>
+    <script type="text/javascript" src="./cgIShape.js"></script>
+    <script type="text/javascript" src="./myShapes-min.js"></script>
+    <script type="text/javascript" src="./event.js"></script>
+    
+    <img id="wood-texture" src="./plywood.jpg" style="display:none;">
+    <img id="luxo-texture" src="./luxo_jr.jpg" style="display:none;">
+
+    <script type="text/javascript">
+        window.onload = init;
+    </script>
+</head>
+
+<body>
+  <h1>CSCI-610: Final Exam Image</h1>
+  <table>
+      <tr>
+          <td><canvas id="webgl-canvas" width="500" height="500">
+            Your browser does not support the HTML5 canvas element.
+          </canvas></td>
+          <td>
+              <h3>Controls</h3>
+              <table border="1">
+                <tbody>
+                    <tr><td>T</td><td>Toggle texture/shading mode</td></tr>
+                    <tr><td>V</td><td>Per-vertex shading (in shading mode)</td></tr>
+                    <tr><td>F</td><td>Per-fragment shading (in shading mode)</td></tr>
+                    <tr><td>R</td><td>Reset view</td></tr>
+                    <tr><td>Click+Drag</td><td>Mouse rotate</td></tr>
+                    <tr><td>X / Shift+X</td><td>Rotate view up/down</td></tr>
+                    <tr><td>Y / Shift+Y</td><td>Rotate view left/right</td></tr>
+                </tbody>
+              </table>
+          </td>
+      </tr>
+  </table>
+</body>
+</html>
