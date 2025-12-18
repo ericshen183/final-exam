@@ -1,7 +1,6 @@
 <html>
 <head>
     <title>CSCI-610 -- Final Exam</title>
-    
     <script id="wireframe-V" type="x-shader/x-vertex">
         #version 300 es
         in vec4 aVertexPosition;
@@ -23,23 +22,23 @@
     </script>
 
     <script id="tex-V" type="x-shader/x-vertex">
-        #version 300 es
-        precision highp float;
+#version 300 es
+precision highp float;
 
-        in vec4 aVertexPosition;
-        in vec2 aUV;             // Added UV attribute from textureMain2 logic
+in vec4 aVertexPosition;
+in vec2 aUV;             // UV attribute from textureMain2 logic
 
-        out vec2 theUV;          // Pass UVs to fragment shader
+out vec2 theUV;          // Pass UVs to fragment shader
 
-        uniform mat4 modelT;
-        uniform mat4 viewT;
-        uniform mat4 projT;
+uniform mat4 modelT;
+uniform mat4 viewT;
+uniform mat4 projT;
 
-        void main() {
-            theUV = aUV;
-            gl_Position = projT * viewT * modelT * aVertexPosition;
-        }
-    </script>
+void main() {
+    theUV = aUV;
+    gl_Position = projT * viewT * modelT * aVertexPosition;
+}
+</script>
 
     <!-- UPDATED: Add spherical mapping texture vertex shader for sphere -->
     <script id="sphereMap-V" type="x-shader/x-vertex">
@@ -260,7 +259,6 @@ void main(void) {
     <script type="text/javascript" src="./finalMain.js"></script>
     <script type="text/javascript" src="./cgIShape.js"></script>
     <script type="text/javascript" src="./myShapes-min.js"></script>
-    <script type="text/javascript" src="./event.js"></script>
     
     <img id="wood-texture" src="./plywood.jpg" style="display:none;">
     <img id="luxo-texture" src="./luxo_jr.jpg" style="display:none;">
